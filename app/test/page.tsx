@@ -5,7 +5,16 @@ import { useRouter } from "next/navigation";
 import { EdenLogo } from "@/components/EdenLogo";
 import { results } from "@/data/results";
 import { buildTieBreakerQuestions, TieBreakerQuestion } from "@/data/tiebreakers";
-import { EnneagramType, questions } from "@/data/questions";
+import { EnneagramType, Question, questions } from "@/data/questions";
+import {
+  ADAPTIVE_BATCH_SIZE,
+  INITIAL_QUESTION_COUNT,
+  MAX_ADAPTIVE_QUESTION_COUNT,
+  MIN_ADAPTIVE_QUESTION_COUNT,
+  selectAdaptiveQuestionIds,
+  selectInitialQuestionIds,
+  shouldContinueAdaptive,
+} from "@/lib/adaptive";
 import { ResultMeta } from "@/lib/result-meta";
 import {
   analyzeScores,
@@ -13,8 +22,8 @@ import {
   ScoreAnalysis,
 } from "@/lib/scoring";
 
-const SECTION_SIZE = 12;
-const TOTAL_SECTIONS = Math.ceil(questions.length / SECTION_SIZE);
+const SECTION_SIZE = 6;
+const QUESTION_BY_ID = new Map<number, Question>(questions.map((question) => [question.id, question]));
 
 interface TieBreakerState {
   analysis: ScoreAnalysis;
@@ -30,10 +39,21 @@ function formatScore(score: number) {
 export default function TestPage() {
   const router = useRouter();
   const [answers, setAnswers] = useState<Answers>({});
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState<number[]>(
+    () => selectInitialQuestionIds(questions)
+  );
   const [currentSection, setCurrentSection] = useState(0);
+  const [adaptiveNotice, setAdaptiveNotice] = useState(
+    `系統會先出 ${INITIAL_QUESTION_COUNT} 題基礎題，再按你的答案動態追加更聚焦的題目。`
+  );
   const [tieBreakerState, setTieBreakerState] = useState<TieBreakerState | null>(null);
 
-  const sectionQuestions = questions.slice(
+  const selectedQuestions = selectedQuestionIds
+    .map((id) => QUESTION_BY_ID.get(id))
+    .filter((question): question is Question => Boolean(question));
+
+  const totalSections = Math.ceil(selectedQuestions.length / SECTION_SIZE);
+  const sectionQuestions = selectedQuestions.slice(
     currentSection * SECTION_SIZE,
     (currentSection + 1) * SECTION_SIZE
   );
@@ -50,10 +70,10 @@ export default function TestPage() {
     (question) => answers[question.id] !== undefined
   ).length;
   const sectionComplete = sectionAnsweredCount === sectionQuestions.length;
-  const totalAnswered = Object.keys(answers).length;
+  const totalAnswered = selectedQuestionIds.filter((id) => answers[id] !== undefined).length;
   const progress = isTieBreakerActive
     ? tieBreakerAnsweredCount / tieBreakerQuestions.length
-    : totalAnswered / questions.length;
+    : totalAnswered / Math.max(selectedQuestions.length, 1);
 
   function scrollToTop(behavior: ScrollBehavior = "smooth") {
     window.scrollTo({ top: 0, behavior });
@@ -61,9 +81,13 @@ export default function TestPage() {
 
   function buildResultMeta(
     analysis: ScoreAnalysis,
+    answeredQuestionCount: number,
     overrides: Partial<ResultMeta> = {}
   ): ResultMeta {
     return {
+      adaptiveMode: true,
+      answeredQuestionCount,
+      questionPoolSize: questions.length,
       scoreScale: analysis.scoreScale,
       topType: analysis.topType,
       runnerUpType: analysis.runnerUpType,
@@ -76,11 +100,12 @@ export default function TestPage() {
   function navigateToResult(
     finalType: EnneagramType,
     analysis: ScoreAnalysis,
+    answeredQuestionCount: number,
     metaOverrides: Partial<ResultMeta> = {}
   ) {
     const scoresParam = encodeURIComponent(JSON.stringify(analysis.normalizedScores));
     const metaParam = encodeURIComponent(
-      JSON.stringify(buildResultMeta(analysis, metaOverrides))
+      JSON.stringify(buildResultMeta(analysis, answeredQuestionCount, metaOverrides))
     );
 
     router.push(
@@ -104,13 +129,38 @@ export default function TestPage() {
   }
 
   function handleNext() {
-    if (currentSection < TOTAL_SECTIONS - 1) {
+    if (currentSection < totalSections - 1) {
       setCurrentSection((section) => section + 1);
       window.setTimeout(() => scrollToTop(), 50);
       return;
     }
 
-    const analysis = analyzeScores(questions, answers);
+    const analysis = analyzeScores(selectedQuestions, answers);
+    const canContinueAdaptive = shouldContinueAdaptive(
+      analysis,
+      totalAnswered,
+      selectedQuestions.length,
+      questions.length
+    );
+
+    if (canContinueAdaptive) {
+      const nextIds = selectAdaptiveQuestionIds(
+        questions,
+        selectedQuestionIds,
+        analysis,
+        ADAPTIVE_BATCH_SIZE
+      );
+
+      if (nextIds.length > 0) {
+        setSelectedQuestionIds((prev) => [...prev, ...nextIds]);
+        setCurrentSection((section) => section + 1);
+        setAdaptiveNotice(
+          `目前最接近 ${results[analysis.topType].name} / ${results[analysis.runnerUpType].name}，已追加 ${nextIds.length} 題更聚焦問題。`
+        );
+        window.setTimeout(() => scrollToTop(), 50);
+        return;
+      }
+    }
 
     if (analysis.requiresTieBreaker) {
       const pair: [EnneagramType, EnneagramType] = [
@@ -124,11 +174,14 @@ export default function TestPage() {
         questions: buildTieBreakerQuestions(pair[0], pair[1]),
         answers: {},
       });
+      setAdaptiveNotice(
+        `完成 ${selectedQuestions.length} 題後仍然非常接近，現在用 5 題最後比較題幫你分清。`
+      );
       window.setTimeout(() => scrollToTop(), 50);
       return;
     }
 
-    navigateToResult(analysis.topType, analysis);
+    navigateToResult(analysis.topType, analysis, selectedQuestions.length);
   }
 
   function handleTieBreakerSubmit() {
@@ -153,7 +206,7 @@ export default function TestPage() {
         ? firstType
         : secondType;
 
-    navigateToResult(finalType, tieBreakerState.analysis, {
+    navigateToResult(finalType, tieBreakerState.analysis, selectedQuestions.length, {
       usedTieBreaker: true,
       tieBreakerPair: tieBreakerState.pair,
       tieBreakerVotes: {
@@ -185,12 +238,12 @@ export default function TestPage() {
           <span className="text-xs font-medium" style={{ color: "#7A9E7A" }}>
             {isTieBreakerActive
               ? "最後比較題"
-              : `第 ${currentSection + 1} 組 / 共 ${TOTAL_SECTIONS} 組`}
+              : `自適應測驗 · 第 ${currentSection + 1} 組 / 共 ${totalSections} 組`}
           </span>
           <span className="text-xs" style={{ color: "#A0B0A0" }}>
             {isTieBreakerActive
               ? `${tieBreakerAnsweredCount} / ${tieBreakerQuestions.length} 題`
-              : `${totalAnswered} / ${questions.length} 題`}
+              : `${totalAnswered} / ${selectedQuestions.length} 題`}
           </span>
         </div>
 
@@ -206,6 +259,28 @@ export default function TestPage() {
       </div>
 
       <div className="pt-32 pb-8 px-4 max-w-lg mx-auto">
+        {!isTieBreakerActive && (
+          <div
+            className="mb-5 rounded-2xl p-5"
+            style={{
+              background: "white",
+              border: "1.5px solid rgba(122,158,122,0.15)",
+              boxShadow: "0 2px 16px rgba(0,0,0,0.04)",
+            }}
+          >
+            <p className="text-xs mb-2 tracking-[0.16em]" style={{ color: "#A0B0A0" }}>
+              ADAPTIVE MODE
+            </p>
+            <p className="text-sm leading-7 mb-2" style={{ color: "#4A5E4A" }}>
+              題庫共 {questions.length} 題，系統會先問基礎題，再按你的答案追加更聚焦的題目。
+              一般會在 {MIN_ADAPTIVE_QUESTION_COUNT} 至 {Math.min(MAX_ADAPTIVE_QUESTION_COUNT, questions.length)} 題內完成。
+            </p>
+            <p className="text-sm leading-7" style={{ color: "#6B7F6B" }}>
+              {adaptiveNotice}
+            </p>
+          </div>
+        )}
+
         {isTieBreakerActive && tieBreakerState ? (
           <>
             <div
@@ -223,7 +298,8 @@ export default function TestPage() {
                 {results[tieBreakerState.pair[0]].name} / {results[tieBreakerState.pair[1]].name}
               </h1>
               <p className="text-sm leading-7 mb-4" style={{ color: "#4A5E4A" }}>
-                校正後兩個結果只差 {formatScore(tieBreakerState.analysis.normalizedGap)} 分。
+                完成 {selectedQuestions.length} 題自適應測驗後，校正分數仍只差{" "}
+                {formatScore(tieBreakerState.analysis.normalizedGap)} 分。
                 再答 5 題核心比較題，我們會用最後結果幫你分清主型。
               </p>
               <div className="grid grid-cols-2 gap-3">
@@ -458,7 +534,7 @@ export default function TestPage() {
                   letterSpacing: "0.05em",
                 }}
               >
-                {currentSection < TOTAL_SECTIONS - 1 ? "下一組 →" : "查看結果 ✦"}
+                {currentSection < totalSections - 1 ? "下一組 →" : "下一步 ✦"}
               </button>
 
               {!sectionComplete && (

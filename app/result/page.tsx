@@ -74,8 +74,10 @@ function ResultContent() {
   const maxScore = scoreValues.length > 0 ? Math.max(...scoreValues, 0) : 0;
   const runnerUpType = meta?.runnerUpType ?? TYPE_ORDER.find((candidate) => candidate !== type) ?? type;
   const explanation = meta?.usedTieBreaker && meta.tieBreakerPair && meta.tieBreakerVotes
-    ? `校正後 ${results[meta.tieBreakerPair[0]].name} 與 ${results[meta.tieBreakerPair[1]].name} 只差 ${formatScore(meta.normalizedGap)} 分，因此加做 5 題最後比較題。最終 ${results[meta.tieBreakerVotes.winner].name} 以 ${meta.tieBreakerVotes.first}:${meta.tieBreakerVotes.second} 勝出。`
-    : `各型分數已按出題數拉平到 ${meta?.scoreScale ?? 15} 分制。${results[type].name} 目前比第二接近的 ${results[runnerUpType].name} 高出 ${formatScore(meta?.normalizedGap ?? 0)} 分。`;
+    ? `系統先從 ${meta.questionPoolSize} 題題庫中自適應選出 ${meta.answeredQuestionCount} 題主測驗。完成後，${results[meta.tieBreakerPair[0]].name} 與 ${results[meta.tieBreakerPair[1]].name} 校正分數只差 ${formatScore(meta.normalizedGap)} 分，因此再加做 5 題最後比較題。最終 ${results[meta.tieBreakerVotes.winner].name} 以 ${meta.tieBreakerVotes.first}:${meta.tieBreakerVotes.second} 勝出。`
+    : meta?.adaptiveMode
+      ? `系統從 ${meta.questionPoolSize} 題題庫中自適應選出 ${meta.answeredQuestionCount} 題完成主測驗，再把各型分數拉平到 ${meta.scoreScale} 分制。${results[type].name} 目前比第二接近的 ${results[runnerUpType].name} 高出 ${formatScore(meta.normalizedGap)} 分。`
+      : `各型分數已按出題數拉平到 ${meta?.scoreScale ?? 15} 分制。${results[type].name} 目前比第二接近的 ${results[runnerUpType].name} 高出 ${formatScore(meta?.normalizedGap ?? 0)} 分。`;
 
   return (
     <main
@@ -163,7 +165,9 @@ function ResultContent() {
               各型校正得分
             </p>
             <p className="text-[11px]" style={{ color: "#B0B8B0" }}>
-              已拉平至 {meta?.scoreScale ?? 15} 分制
+              {meta?.adaptiveMode
+                ? `${meta.answeredQuestionCount} / ${meta.questionPoolSize} 題 · ${meta.scoreScale} 分制`
+                : `已拉平至 ${meta?.scoreScale ?? 15} 分制`}
             </p>
           </div>
 

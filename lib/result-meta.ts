@@ -1,6 +1,9 @@
 import { EnneagramType } from "@/data/questions";
 
 export interface ResultMeta {
+  adaptiveMode: boolean;
+  answeredQuestionCount: number;
+  questionPoolSize: number;
   scoreScale: number;
   topType: EnneagramType;
   runnerUpType: EnneagramType;
