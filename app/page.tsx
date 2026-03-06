@@ -72,9 +72,14 @@ export default function Home() {
           </button>
         </Link>
 
-        <p className="mt-6 text-xs" style={{ color: "#A0B0A0" }}>
-          約需 5–8 分鐘完成
-        </p>
+        <div className="mt-6 space-y-1">
+          <p className="text-xs" style={{ color: "#A0B0A0" }}>
+            約需 5–8 分鐘完成
+          </p>
+          <p className="text-xs" style={{ color: "#B3BDB3" }}>
+            如校正後分數非常接近，系統會再加 5 題最後比較題
+          </p>
+        </div>
       </div>
     </main>
   );
