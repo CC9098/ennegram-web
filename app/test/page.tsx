@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { EdenLogo } from "@/components/EdenLogo";
 import { questions } from "@/data/questions";
 import { Answers, calculateScores, getTopType } from "@/lib/scoring";
 // leaf decor unused in test
@@ -63,6 +64,10 @@ export default function TestPage() {
         className="fixed top-0 left-0 right-0 z-50 px-5 pt-4 pb-3"
         style={{ background: "rgba(253,252,248,0.92)", backdropFilter: "blur(12px)" }}
       >
+        <div className="mb-3 flex justify-center">
+          <EdenLogo size="compact" />
+        </div>
+
         {/* Section label */}
         <div className="flex justify-between items-center mb-2">
           <span className="text-xs font-medium" style={{ color: "#7A9E7A" }}>
@@ -86,7 +91,7 @@ export default function TestPage() {
       </div>
 
       {/* Questions */}
-      <div ref={sectionRef} className="pt-24 pb-8 px-4 max-w-lg mx-auto">
+      <div ref={sectionRef} className="pt-32 pb-8 px-4 max-w-lg mx-auto">
         {sectionQuestions.map((q, idx) => {
           const answered = answers[q.id];
           const questionNumber = currentSection * SECTION_SIZE + idx + 1;

@@ -2,6 +2,7 @@
 
 import { Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { EdenLogo } from "@/components/EdenLogo";
 import { results } from "@/data/results";
 import { EnneagramType } from "@/data/questions";
 import { LeafTopRight, LeafBottomLeft, SmallLeaf } from "@/components/LeafDecor";
@@ -39,6 +40,10 @@ function ResultContent() {
       <LeafBottomLeft className="bottom-0 left-0 opacity-50" />
 
       <div className="relative z-10 max-w-sm mx-auto px-5 py-12">
+        <div className="mb-6 flex justify-center">
+          <EdenLogo />
+        </div>
+
         {/* Header */}
         <div className="text-center mb-8">
           <p className="text-xs mb-3 tracking-widest uppercase" style={{ color: "#A0B0A0" }}>

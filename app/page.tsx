@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { EdenLogo } from "@/components/EdenLogo";
 import { LeafTopRight, LeafBottomLeft, SmallLeaf } from "@/components/LeafDecor";
 
 export default function Home() {
@@ -13,6 +14,10 @@ export default function Home() {
       <LeafBottomLeft className="bottom-0 left-0" />
 
       <div className="relative z-10 text-center max-w-sm w-full">
+        <div className="flex justify-center mb-5">
+          <EdenLogo />
+        </div>
+
         {/* Icon */}
         <div className="flex justify-center mb-6">
           <div
