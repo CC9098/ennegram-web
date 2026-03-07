@@ -48,10 +48,10 @@ export default function Home() {
         </div>
 
         <p className="text-sm leading-relaxed mb-2" style={{ color: "#4A5E4A" }}>
-          題庫共 60 題，系統會按你的答案自適應出題。
+          請選出較符合你的一項。
         </p>
         <p className="text-sm leading-relaxed mb-8" style={{ color: "#6B7F6B" }}>
-          通常約答 24–36 題完成。請根據你
+          請根據你
           <span className="font-medium" style={{ color: "#4A5E4A" }}>
             一貫以來
           </span>
@@ -72,14 +72,9 @@ export default function Home() {
           </button>
         </Link>
 
-        <div className="mt-6 space-y-1">
-          <p className="text-xs" style={{ color: "#A0B0A0" }}>
-            約需 4–7 分鐘完成
-          </p>
-          <p className="text-xs" style={{ color: "#B3BDB3" }}>
-            如結果仍然接近，系統會再加 5 題最後比較題
-          </p>
-        </div>
+        <p className="mt-6 text-xs" style={{ color: "#A0B0A0" }}>
+          約需 4–7 分鐘完成
+        </p>
       </div>
     </main>
   );
